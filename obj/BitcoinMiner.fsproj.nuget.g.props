@@ -17,7 +17,5 @@
   </PropertyGroup>
   <PropertyGroup Condition=" '$(ExcludeRestorePackageImports)' != 'true' ">
     <PkgFSharp_Core Condition=" '$(PkgFSharp_Core)' == '' ">/Users/tanishqshaikh/.nuget/packages/fsharp.core/5.0.0</PkgFSharp_Core>
-    <PkgAkka Condition=" '$(PkgAkka)' == '' ">/Users/tanishqshaikh/.nuget/packages/akka/1.4.25</PkgAkka>
-    <PkgAkka_FSharp Condition=" '$(PkgAkka_FSharp)' == '' ">/Users/tanishqshaikh/.nuget/packages/akka.fsharp/1.4.25</PkgAkka_FSharp>
   </PropertyGroup>
 </Project>

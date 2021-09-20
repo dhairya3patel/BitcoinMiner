@@ -1,3 +1,0 @@
-/Users/tanishqshaikh/Documents/GitHub/BitcoinMiner/obj/Debug/net5.0/BitcoinMiner.fsproj.AssemblyReference.cache
-/Users/tanishqshaikh/Documents/GitHub/BitcoinMiner/obj/Debug/net5.0/BitcoinMiner.AssemblyInfoInputs.cache
-/Users/tanishqshaikh/Documents/GitHub/BitcoinMiner/obj/Debug/net5.0/BitcoinMiner.AssemblyInfo.fs
