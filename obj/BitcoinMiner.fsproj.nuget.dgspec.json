@@ -33,9 +33,15 @@
         "net5.0": {
           "targetAlias": "net5.0",
           "dependencies": {
+            "Akka": {
+              "target": "Package",
+              "version": "[1.4.25, )",
+              "generatePathProperty": true
+            },
             "Akka.FSharp": {
               "target": "Package",
-              "version": "[1.4.25, )"
+              "version": "[1.4.25, )",
+              "generatePathProperty": true
             },
             "FSharp.Core": {
               "include": "Runtime, Compile, Build, Native, Analyzers, BuildTransitive",
@@ -59,7 +65,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/5.0.400/RuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/5.0.401/RuntimeIdentifierGraph.json"
         }
       }
     }
