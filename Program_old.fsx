@@ -14,7 +14,7 @@ let gator = "tanishq.shaikh"
 
 let genRandomNumbers count =
     let rnd = System.Random()
-    List.init count (fun _ -> rnd.Next ())
+    List.init count (fun _ -> rnd.Next (5,10))
 
 let ranStr n = 
     let r = Random()
@@ -42,7 +42,8 @@ type TestMessage =
     | SupervisorMessage of int
 
 let FindCoin gator lead =
-    let suffix = ranStr 5
+    let length = genRandomNumbers 1
+    let suffix = ranStr length.Head    
     let mutable verifier = "0"
     let mutable i = 1
     while i<lead do
@@ -107,8 +108,8 @@ let CoinSupervisorRef = spawn system "CoinSupervisor" CoinSupervisor
 CoinSupervisorRef <! SupervisorMessage(lead)
 // CoinSupervisorRef <! PoisonPill.Instance
 #time "on"
-// system.WhenTerminated.Wait()
-system.Terminate()
+system.WhenTerminated.Wait()
+// system.Terminate()
 
 // stopWatch.Stop()
 // printfn "%f" stopWatch.Elapsed.TotalMilliseconds
