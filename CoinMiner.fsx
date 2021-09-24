@@ -149,18 +149,6 @@ let CoinSupervisor (mailbox: Actor<_>) =
 let CoinSupervisorRef =
     spawn system "CoinSupervisor" CoinSupervisor
 
-// let serverSetup =
-//     spawn system "myServer"
-//     <| fun mailbox ->
-//         let rec loop () =
-//             actor {
-//                 let! msg = mailbox.Receive()
-//                 printfn "%s" msg
-//                 return! loop ()
-//             }
-
-//         loop ()
-
 CoinSupervisorRef <! SupervisorMessage(lead)
 // serverSetup
 #time "on"
