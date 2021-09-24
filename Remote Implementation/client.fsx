@@ -11,10 +11,8 @@ open System.Text
 
 let server = fsi.CommandLineArgs.[1] |> string
 
-let addr = "akka.tcp://RemoteFSharp@"+server+":9090/user/myServer"
-let mutable coinlist: string list = []
+let addr = "akka.tcp://RemoteCoinMiner@"+server+":9090/user/myServer"
 let mutable workerCount=System.Environment.ProcessorCount|> int
-let workers = System.Environment.ProcessorCount |> int
 
 let configuration = 
     ConfigurationFactory.ParseString(
@@ -31,7 +29,7 @@ let configuration =
             }
         }")
 
-let system = ActorSystem.Create("ClientFsharp", configuration)
+let system = ActorSystem.Create("ClientCoinMiner", configuration)
 
 type TestMessage = 
     | WorkerMessage of int*int
@@ -118,8 +116,6 @@ let CoinSupervisor (mailbox:Actor<_>) =
         | _ -> printfn "Erraneous Message!"
     }
     loop()
-
-let mutable localWorkDone = false
 
 let mutable remoteWorkDone = false
 let commlink = 
