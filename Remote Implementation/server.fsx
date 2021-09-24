@@ -31,6 +31,7 @@ let configuration =
 Console.WriteLine("Please enter the number of leading zeroes:")
 let lead = int(Console.ReadLine())
 let gator = "dhairya.patel"
+// let mutable workerResponse = 0
 
 let genRandomNumbers count =
     let rnd = System.Random()
@@ -60,6 +61,7 @@ type CommunicationMessages =
     | WorkerMessage of int*int
     | EndMessage of string
     | SupervisorMessage of int
+    | CoinMessage of string
 
 let FindCoin gator lead =
     let suffix = ranStr 5
@@ -81,6 +83,7 @@ let FindCoin gator lead =
         nonce <- nonce + 1 
     coin |> ignore
     Console.WriteLine(coin)
+    
     
 
 
@@ -114,10 +117,17 @@ let CoinSupervisor (mailbox:Actor<_>) =
                                         // listOfWorkers.Item(i) <! PoisonPill.Instance
                                      
 
-        | EndMessage(textMsg) ->   if textMsg = "Done" then
-                                    printfn "%s" textMsg
-                                    mailbox.Context.System.Terminate() |> ignore
+        | CoinMessage(coin) -> printfn "%s" coin
+                                        //    mailbox.Context.System.Terminate() |> ignore
+            
+        | EndMessage(textMsg) ->    if textMsg = "Done" then
+                                        // printfn "%s" textMsg
+                                    //     workerResponse <- workerResponse + 1
+                                    // if workerResponse = workerCount then
+                                        // mailbox.Context.System.WhenTerminated.Wait() |> ignore
+                                        mailbox.Context.System.Terminate() |> ignore
         | _ -> printfn "Erraneous Message!"
+        return! loop()
     }
     loop()
 
@@ -134,6 +144,7 @@ let serverSetup =
                 return! loop() 
             } loop()
 
-CoinSupervisorRef <! SupervisorMessage(lead)
+// CoinSupervisorRef <! SupervisorMessage(lead)
 serverSetup 
+#time "on"
 system.WhenTerminated.Wait()
