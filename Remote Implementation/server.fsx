@@ -24,7 +24,7 @@ let configuration =
             remote {
                 helios.tcp {
                     port = 9090
-                    hostname = 10.20.115.14
+                    hostname = 10.20.115.11
                 }
             }
         }"
@@ -33,6 +33,7 @@ let configuration =
 Console.WriteLine("Enter the number of leading zeroes:")
 let lead = int (Console.ReadLine())
 let gator = "dhairya.patel"
+let mutable coinCount = 0
 
 let genlength: int =
     let r = Random()
@@ -74,13 +75,13 @@ let system =
     ActorSystem.Create("RemoteCoinMiner", configuration)
 
 type CommunicationMessages =
-    | WorkerMessage of int * int
-    | EndMessage of string
+    | WorkerMessage of int * int * IActorRef
+    | EndMessage of IActorRef * string
     | SupervisorMessage of int
     | CoinMessage of string
 
-let FindCoin gator lead =
-    let length = genlength
+let FindCoin gator lead length=
+    // let length = genlength
     let suffix = seedStr length
     let mutable verifier = "0"
     let mutable i = 1
@@ -111,8 +112,7 @@ let FindCoin gator lead =
 
         nonce <- nonce + 1
 
-    coin |> ignore
-    Console.WriteLine(coin)
+    coin
 
 
 
@@ -123,14 +123,14 @@ let CoinWorker (mailbox: Actor<_>) =
             let! message = mailbox.Receive()
 
             match message with
-            | WorkerMessage (first, last) ->
-                FindCoin gator last
+            | WorkerMessage (length, last, workerAddress) ->
+                let returnedCoin = FindCoin gator last length
                 let sender = mailbox.Sender()
-                sender <! EndMessage("Done")
-
+                sender <! EndMessage(workerAddress, returnedCoin)
 
             | _ -> printfn "Erraneous Message from the Supervisor! "
 
+            return! loop()
         }
 
     loop ()
@@ -149,20 +149,19 @@ let CoinSupervisor (mailbox: Actor<_>) =
 
                 for i in 0 .. workerCount - 1 do //distributing work to the workers
                     // printfn "Worker %i " i
-                    listOfWorkers.Item(i) <! WorkerMessage(1, lead)
-            // listOfWorkers.Item(i).Ask(EndMessage) |> ignore
-            // mailbox.Context.Stop(listOfWorkers.Item(i))
-            // listOfWorkers.Item(i) <! PoisonPill.Instance
-
-
+                    listOfWorkers.Item(i) <! WorkerMessage(5, lead, listOfWorkers.Item(i))
             | CoinMessage (coin) -> printfn "%s" coin
-            //    mailbox.Context.System.Terminate() |> ignore
 
-            | EndMessage (textMsg) ->
-                if textMsg = "Done" then
-                    mailbox.Context.System.Terminate() |> ignore
+            | EndMessage (workerAddress, returnedCoin) -> 
+                printfn "%s" returnedCoin
+                coinCount <- coinCount + 1
+                if coinCount = 30 then
+                    system.Terminate() |> ignore
+                else
+                    workerAddress <! WorkerMessage(6, lead, workerAddress)
+                    // WorkerMessage(1, lead)
+
             | _ -> printfn "Erraneous Message!"
-
             return! loop ()
         }
 
