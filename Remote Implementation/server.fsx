@@ -24,7 +24,7 @@ let configuration =
             remote {
                 helios.tcp {
                     port = 9090
-                    hostname = 10.20.115.11
+                    hostname = 10.20.115.14
                 }
             }
         }"
@@ -32,8 +32,17 @@ let configuration =
 
 Console.WriteLine("Enter the number of leading zeroes:")
 let lead = int (Console.ReadLine())
+let mutable verifier = "0"
+let mutable i = 1
+
+while i < lead do
+    verifier <- verifier + "0"
+    i <- i + 1
+
 let gator = "dhairya.patel"
 let mutable coinCount = 0
+let mutable maxCoinCapacity = 16
+let mutable localCount = 0
 
 let genlength: int =
     let r = Random()
@@ -75,21 +84,14 @@ let system =
     ActorSystem.Create("RemoteCoinMiner", configuration)
 
 type CommunicationMessages =
-    | WorkerMessage of int * int * IActorRef
+    | WorkerMessage of int * IActorRef
     | EndMessage of IActorRef * string
     | SupervisorMessage of int
     | CoinMessage of string
 
-let FindCoin gator lead length=
+let FindCoin gator length=
     // let length = genlength
     let suffix = seedStr length
-    let mutable verifier = "0"
-    let mutable i = 1
-
-    while i < lead do
-        verifier <- verifier + "0"
-        i <- i + 1
-
     let mutable nonce = 0
     let mutable x = true
     let mutable coin = ""
@@ -123,8 +125,8 @@ let CoinWorker (mailbox: Actor<_>) =
             let! message = mailbox.Receive()
 
             match message with
-            | WorkerMessage (length, last, workerAddress) ->
-                let returnedCoin = FindCoin gator last length
+            | WorkerMessage (length,workerAddress) ->
+                let returnedCoin = FindCoin gator length
                 let sender = mailbox.Sender()
                 sender <! EndMessage(workerAddress, returnedCoin)
 
@@ -134,6 +136,7 @@ let CoinWorker (mailbox: Actor<_>) =
         }
 
     loop ()
+
 
 
 let CoinSupervisor (mailbox: Actor<_>) =
@@ -146,19 +149,18 @@ let CoinSupervisor (mailbox: Actor<_>) =
                 let listOfWorkers =
                     [ for i in 1 .. workerCount do
                           yield (spawn system ("LocalActor" + string (i))) CoinWorker ]
-
                 for i in 0 .. workerCount - 1 do //distributing work to the workers
                     // printfn "Worker %i " i
-                    listOfWorkers.Item(i) <! WorkerMessage(5, lead, listOfWorkers.Item(i))
+                    listOfWorkers.Item(i) <! WorkerMessage(5, listOfWorkers.Item(i))
             | CoinMessage (coin) -> printfn "%s" coin
 
             | EndMessage (workerAddress, returnedCoin) -> 
                 printfn "%s" returnedCoin
                 coinCount <- coinCount + 1
-                if coinCount = 30 then
-                    system.Terminate() |> ignore
+                if coinCount = maxCoinCapacity then
+                    system.WhenTerminated.Wait() |> ignore
                 else
-                    workerAddress <! WorkerMessage(6, lead, workerAddress)
+                    workerAddress <! WorkerMessage(6, workerAddress)
                     // WorkerMessage(1, lead)
 
             | _ -> printfn "Erraneous Message!"
@@ -178,7 +180,17 @@ let serverSetup =
             actor {
                 let! msg = mailbox.Receive()
                 printfn "%s" msg
-                CoinSupervisorRef <! SupervisorMessage(lead)
+                if msg = "Starting" then
+                    maxCoinCapacity <- maxCoinCapacity/2
+                    printfn "%i" maxCoinCapacity
+                    mailbox.Sender() <! "CoinCapacity,"+lead.ToString()+","+maxCoinCapacity.ToString() |> ignore
+                    // CoinSupervisorRef <! SupervisorMessage(lead)
+                // else
+                //     CoinSupervisorRef <! SupervisorMessage(lead)
+                elif msg.Contains("Remote") then
+                    localCount <- localCount + 1
+                if localCount = maxCoinCapacity then
+                    mailbox.Sender() <! "END"
                 return! loop ()
             }
 

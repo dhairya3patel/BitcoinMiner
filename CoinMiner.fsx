@@ -9,6 +9,12 @@ open System.Text
 
 Console.WriteLine("Enter the number of leading zeroes:")
 let lead = int (Console.ReadLine())
+let mutable verifier = ""
+let mutable i = 0
+while i < lead do
+    verifier <- verifier + "0"
+    i <- i + 1
+
 let gator = "dhairya.patel"
 let mutable coinCount = 0
 
@@ -42,27 +48,20 @@ let GetHash gator nonce suffix : string =
     hashS
 
 //Actor-model
-let workerCount = Environment.ProcessorCount
+let workerCount = 8//Environment.ProcessorCount/2
 
 let system =
     ActorSystem.Create("CoinMiner")
 
 type CommunicationMessages =
-    | WorkerMessage of int * int * IActorRef
+    | WorkerMessage of int * IActorRef
     | EndMessage of IActorRef * string
     | SupervisorMessage of int
     | CoinMessage of string
 
-let FindCoin gator lead length=
+let FindCoin gator length=
     // let length = genlength
     let suffix = seedStr length
-    let mutable verifier = "0"
-    let mutable i = 1
-
-    while i < lead do
-        verifier <- verifier + "0"
-        i <- i + 1
-
     let mutable nonce = 0
     let mutable x = true
     let mutable coin = ""
@@ -77,7 +76,7 @@ let FindCoin gator lead length=
                 gator
                 + ";"
                 + suffix
-                + nonce.ToString()
+                + " " + nonce.ToString()
                 + "\t"
                 + hash
         else
@@ -96,8 +95,8 @@ let CoinWorker (mailbox: Actor<_>) =
             let! message = mailbox.Receive()
 
             match message with
-            | WorkerMessage (length, last, workerAddress) ->
-                let returnedCoin = FindCoin gator last length
+            | WorkerMessage (length, workerAddress) ->
+                let returnedCoin = FindCoin gator length
                 let sender = mailbox.Sender()
                 sender <! EndMessage(workerAddress, returnedCoin)
 
@@ -108,9 +107,6 @@ let CoinWorker (mailbox: Actor<_>) =
 
     loop ()
 
-let listOfWorkers =
-                    [ for i in 1 .. workerCount do
-                          yield (spawn system ("LocalActor" + string (i))) CoinWorker ]
                           
 let CoinSupervisor (mailbox: Actor<_>) =
     let rec loop () =
@@ -119,20 +115,23 @@ let CoinSupervisor (mailbox: Actor<_>) =
 
             match message with
             | SupervisorMessage (lead) ->
-                
+                let listOfWorkers =
+                    [ for i in 1 .. workerCount do
+                          yield (spawn system ("LocalActor" + string (i))) CoinWorker ]
+
 
                 for i in 0 .. workerCount - 1 do //distributing work to the workers
                     // printfn "Worker %i " i
-                    listOfWorkers.Item(i) <! WorkerMessage(5, lead, listOfWorkers.Item(i))
+                    listOfWorkers.Item(i) <! WorkerMessage(5, listOfWorkers.Item(i))
             | CoinMessage (coin) -> printfn "%s" coin
 
             | EndMessage (workerAddress, returnedCoin) -> 
                 printfn "%s" returnedCoin
                 coinCount <- coinCount + 1
-                if coinCount = 16 then
+                if coinCount = 24 then
                     system.Terminate() |> ignore
                 else
-                    workerAddress <! WorkerMessage(6, lead, workerAddress)
+                    workerAddress <! WorkerMessage(6, workerAddress)
                     // WorkerMessage(1, lead)
 
             | _ -> printfn "Erraneous Message!"
