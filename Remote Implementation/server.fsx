@@ -89,7 +89,7 @@ type CommunicationMessages =
     | SupervisorMessage of int
     | CoinMessage of string
 
-let FindCoin gator length=
+let FindCoin gator length =
     // let length = genlength
     let suffix = seedStr length
     let mutable nonce = 0
@@ -125,14 +125,14 @@ let CoinWorker (mailbox: Actor<_>) =
             let! message = mailbox.Receive()
 
             match message with
-            | WorkerMessage (length,workerAddress) ->
+            | WorkerMessage (length, workerAddress) ->
                 let returnedCoin = FindCoin gator length
                 let sender = mailbox.Sender()
                 sender <! EndMessage(workerAddress, returnedCoin)
 
             | _ -> printfn "Erraneous Message from the Supervisor! "
 
-            return! loop()
+            return! loop ()
         }
 
     loop ()
@@ -149,21 +149,25 @@ let CoinSupervisor (mailbox: Actor<_>) =
                 let listOfWorkers =
                     [ for i in 1 .. workerCount do
                           yield (spawn system ("LocalActor" + string (i))) CoinWorker ]
+
                 for i in 0 .. workerCount - 1 do //distributing work to the workers
                     // printfn "Worker %i " i
-                    listOfWorkers.Item(i) <! WorkerMessage(5, listOfWorkers.Item(i))
+                    listOfWorkers.Item(i)
+                    <! WorkerMessage(5, listOfWorkers.Item(i))
             | CoinMessage (coin) -> printfn "%s" coin
 
-            | EndMessage (workerAddress, returnedCoin) -> 
+            | EndMessage (workerAddress, returnedCoin) ->
                 printfn "%s" returnedCoin
                 coinCount <- coinCount + 1
+
                 if coinCount = maxCoinCapacity then
                     system.WhenTerminated.Wait() |> ignore
                 else
                     workerAddress <! WorkerMessage(6, workerAddress)
-                    // WorkerMessage(1, lead)
+            // WorkerMessage(1, lead)
 
             | _ -> printfn "Erraneous Message!"
+
             return! loop ()
         }
 
@@ -180,17 +184,26 @@ let serverSetup =
             actor {
                 let! msg = mailbox.Receive()
                 printfn "%s" msg
+
                 if msg = "Starting" then
-                    maxCoinCapacity <- maxCoinCapacity/2
+                    maxCoinCapacity <- maxCoinCapacity / 2
                     printfn "%i" maxCoinCapacity
-                    mailbox.Sender() <! "CoinCapacity,"+lead.ToString()+","+maxCoinCapacity.ToString() |> ignore
-                    // CoinSupervisorRef <! SupervisorMessage(lead)
+
+                    mailbox.Sender()
+                    <! "CoinCapacity,"
+                       + lead.ToString()
+                       + ","
+                       + maxCoinCapacity.ToString()
+                    |> ignore
+                // CoinSupervisorRef <! SupervisorMessage(lead)
                 // else
                 //     CoinSupervisorRef <! SupervisorMessage(lead)
                 elif msg.Contains("Remote") then
                     localCount <- localCount + 1
+
                 if localCount = maxCoinCapacity then
                     mailbox.Sender() <! "END"
+
                 return! loop ()
             }
 

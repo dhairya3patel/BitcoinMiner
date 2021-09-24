@@ -1,5 +1,6 @@
 #r "nuget: Akka.FSharp"
 #r "nuget: Akka.Remote"
+
 open System
 open Akka.Actor
 open Akka.FSharp
@@ -11,6 +12,7 @@ Console.WriteLine("Enter the number of leading zeroes:")
 let lead = int (Console.ReadLine())
 let mutable verifier = ""
 let mutable i = 0
+
 while i < lead do
     verifier <- verifier + "0"
     i <- i + 1
@@ -48,10 +50,9 @@ let GetHash gator nonce suffix : string =
     hashS
 
 //Actor-model
-let workerCount = 8//Environment.ProcessorCount/2
+let workerCount = 8 //Environment.ProcessorCount/2
 
-let system =
-    ActorSystem.Create("CoinMiner")
+let system = ActorSystem.Create("CoinMiner")
 
 type CommunicationMessages =
     | WorkerMessage of int * IActorRef
@@ -59,7 +60,7 @@ type CommunicationMessages =
     | SupervisorMessage of int
     | CoinMessage of string
 
-let FindCoin gator length=
+let FindCoin gator length =
     // let length = genlength
     let suffix = seedStr length
     let mutable nonce = 0
@@ -76,7 +77,8 @@ let FindCoin gator length=
                 gator
                 + ";"
                 + suffix
-                + " " + nonce.ToString()
+                + " "
+                + nonce.ToString()
                 + "\t"
                 + hash
         else
@@ -102,12 +104,12 @@ let CoinWorker (mailbox: Actor<_>) =
 
             | _ -> printfn "Erraneous Message from the Supervisor! "
 
-            return! loop()
+            return! loop ()
         }
 
     loop ()
 
-                          
+
 let CoinSupervisor (mailbox: Actor<_>) =
     let rec loop () =
         actor {
@@ -122,19 +124,22 @@ let CoinSupervisor (mailbox: Actor<_>) =
 
                 for i in 0 .. workerCount - 1 do //distributing work to the workers
                     // printfn "Worker %i " i
-                    listOfWorkers.Item(i) <! WorkerMessage(5, listOfWorkers.Item(i))
+                    listOfWorkers.Item(i)
+                    <! WorkerMessage(5, listOfWorkers.Item(i))
             | CoinMessage (coin) -> printfn "%s" coin
 
-            | EndMessage (workerAddress, returnedCoin) -> 
+            | EndMessage (workerAddress, returnedCoin) ->
                 printfn "%s" returnedCoin
                 coinCount <- coinCount + 1
+
                 if coinCount = 24 then
                     system.Terminate() |> ignore
                 else
                     workerAddress <! WorkerMessage(6, workerAddress)
-                    // WorkerMessage(1, lead)
+            // WorkerMessage(1, lead)
 
             | _ -> printfn "Erraneous Message!"
+
             return! loop ()
         }
 
