@@ -11,7 +11,8 @@ open System.Security.Cryptography
 open System.Text
 
 let server = fsi.CommandLineArgs.[1] |> string
-
+let mutable coinCount = 0
+let mutable maxcoincapactiy = 0
 let addr =
     "akka.tcp://RemoteCoinMiner@"
     + server
@@ -38,19 +39,16 @@ let configuration =
 let system =
     ActorSystem.Create("ClientCoinMiner", configuration)
 
-type TestMessage =
-    | WorkerMessage of int * int
-    | EndMessage of string
+type CommunicationMessages =
+    | WorkerMessage of int * int * IActorRef
+    | EndMessage of IActorRef * string * int
     | SupervisorMessage of int
+    | CoinMessage of string
 
-Console.WriteLine("Please enter the number of leading zeroes:")
-let lead = int (Console.ReadLine())
+// Console.WriteLine("Please enter the number of leading zeroes:")
+// let lead = int (Console.ReadLine())
 let gator = "dhairya.patel"
 
-let genlength: int =
-    let r = System.Random()
-    let li = List.init 1 (fun _ -> r.Next(5, 10))
-    li.Head
 
 let seedStr len : string =
     let r = Random()
@@ -82,8 +80,7 @@ let GetHash gator nonce suffix : string =
     hashS
 
 
-let FindCoin gator lead =
-    let length = genlength
+let FindCoin gator lead length=
     let suffix = seedStr length
     let mutable verifier = "0"
     let mutable i = 1
@@ -123,13 +120,13 @@ let CoinWorker (mailbox: Actor<_>) =
             let! message = mailbox.Receive()
 
             match message with
-            | WorkerMessage (first, last) ->
-                let coin = FindCoin gator last
+            | WorkerMessage (length, lead, workerAddress) ->
+                let coin = FindCoin gator lead length
                 let serverActor = system.ActorSelection(addr)
                 let sendServer = coin.ToString()
-                serverActor <! "Remote" + sendServer
+                serverActor <! "Remote: " + sendServer
                 let sender = mailbox.Sender()
-                sender <! EndMessage("Done")
+                sender <! EndMessage(workerAddress, coin,lead)//"Done")
 
 
             | _ -> printfn "Erraneous Message!"
@@ -148,17 +145,19 @@ let CoinSupervisor (mailbox: Actor<_>) =
             | SupervisorMessage (lead) ->
                 let listOfWorkers =
                     [ for i in 1 .. workerCount do
-                          spawn system ("Actor" + string (i)) CoinWorker ]
+                          spawn system ("RemoteActor" + string (i)) CoinWorker ]
                 //  Console.WriteLine(listOfWorkers.Item(0))
                 for i in 0 .. workerCount - 1 do //distributing work to the workers
                     // printfn "Worker %i " i
-                    listOfWorkers.Item(i) <! WorkerMessage(1, lead)
+                    listOfWorkers.Item(i) <! WorkerMessage(7, lead,listOfWorkers.Item(i))
 
 
-            | EndMessage (textMsg) ->
-                if textMsg = "Done" then
-                    printfn "%s" textMsg
-                    mailbox.Context.System.Terminate() |> ignore
+            | EndMessage (workerAddress, returnedCoin,lead) ->
+                coinCount <- coinCount + 1
+                if coinCount = maxcoincapactiy then
+                    system.Terminate() |> ignore
+                else
+                    workerAddress <! WorkerMessage(7, lead, workerAddress)
             | _ -> printfn "Erraneous Message!"
         }
 
@@ -172,21 +171,34 @@ let Network =
         let rec loop () =
             actor {
                 let! message = mailbox.Receive()
-                // printfn "%s" message
+                printfn "%s" message
                 let resp = message |> string
                 let order = (resp).Split ','
+                let serverActor = system.ActorSelection(addr)
 
-                if order.[0].CompareTo("Start") = 0 then
-                    let serverActor = system.ActorSelection(addr)
+                // if order.[0].CompareTo("Start") = 0 then
+                //     let serverActor = system.ActorSelection(addr)
+                //     let sendServer = "Starting"
+                //     serverActor <! sendServer
+
+                //     let CoinSupervisorRef =
+                //         spawn system "CoinSupervisor" CoinSupervisor
+
+                //     CoinSupervisorRef <! SupervisorMessage(lead)
+                //     serverActor <! SupervisorMessage(lead)
+                if order.[0].CompareTo("Start") = 0 then                    
                     let sendServer = "Starting"
                     serverActor <! sendServer
+                elif order.[0].CompareTo("CoinCapacity")=0 then
+                    let lead = order.[1] |> int
+                    maxcoincapactiy <- order.[2] |> int   
 
-                    let CoinSupervisorRef =
-                        spawn system "CoinSupervisor" CoinSupervisor
-
+                    let CoinSupervisorRef = spawn system "CoinSupervisor" CoinSupervisor
+                                        
                     CoinSupervisorRef <! SupervisorMessage(lead)
                     serverActor <! SupervisorMessage(lead)
-                elif resp.CompareTo("Done") = 0 then
+                elif resp.CompareTo("END") = 0 then
+                    printfn "-%s-" message
                     system.Terminate() |> ignore
                 else
                     printfn "-%s-" message
