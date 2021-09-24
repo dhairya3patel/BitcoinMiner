@@ -1,20 +1,40 @@
-#r "nuget: Akka.FSharp, 1.4.25"
-#time "on"
+#r "nuget: Akka.FSharp" 
+#r "nuget: Akka.Remote"
 open System
-open System.Security.Cryptography
-open System.Text
 open Akka.Actor
 open Akka.Configuration
 open Akka.FSharp
+open System.Security.Cryptography
+open System.Text
 
-let stopWatch = System.Diagnostics.Stopwatch.StartNew()
+let configuration = 
+    ConfigurationFactory.ParseString(
+        @"akka {
+            actor {
+                provider = ""Akka.Remote.RemoteActorRefProvider, Akka.Remote""
+                debug : {
+                    receive : on
+                    autoreceive : on
+                    lifecycle : on
+                    event-stream : on
+                    unhandled : on
+                }
+            }
+            remote {
+                helios.tcp {
+                    port = 9090
+                    hostname = 10.20.115.11
+                }
+            }
+        }")
+
 Console.WriteLine("Please enter the number of leading zeroes:")
 let lead = int(Console.ReadLine())
-let gator = "tanishq.shaikh"
+let gator = "dhairya.patel"
 
 let genRandomNumbers count =
     let rnd = System.Random()
-    List.init count (fun _ -> rnd.Next ())
+    List.init count (fun _ -> rnd.Next (5,10))
 
 let ranStr n = 
     let r = Random()
@@ -33,10 +53,10 @@ let GetHash gator nonce suffix :string =
 
 //Actor-model
 let workerCount = 8
-let mutable CurrentCount = 0
-let system = ActorSystem.Create("CoinMiner")
+// let system = ActorSystem.Create("CoinMiner")
+let system = ActorSystem.Create("RemoteCoinMiner", configuration)
 
-type TestMessage = 
+type CommunicationMessages = 
     | WorkerMessage of int*int
     | EndMessage of string
     | SupervisorMessage of int
@@ -73,7 +93,7 @@ let CoinWorker (mailbox: Actor<_>) =
                                             sender <! EndMessage("Done")
                                             
                                             
-        | _ -> printfn "Erraneous Message!"
+        | _ -> printfn "Erraneous Message from the Supervisor! "
         
     }
     loop ()
@@ -83,9 +103,9 @@ let CoinSupervisor (mailbox:Actor<_>) =
     let rec loop()=actor{
         let! message = mailbox.Receive()
         match message with 
-        | SupervisorMessage(lead) -> let listOfWorkers = [for i in 1 .. workerCount do spawn system ("Actor" + string(i) ) CoinWorker  ]
+        | SupervisorMessage(lead) -> let listOfWorkers = [for i in 1 .. workerCount do yield(spawn system ("Actor" + string(i) )) CoinWorker  ]
                                     //  let flag = 1
-                                     Console.WriteLine(listOfWorkers.Item(0))
+                                    //  Console.WriteLine(listOfWorkers)
                                      for i in 0 .. workerCount-1 do //distributing work to the workers
                                         printfn "Worker %i " i 
                                         listOfWorkers.Item(i) <! WorkerMessage(1,lead)
@@ -104,11 +124,16 @@ let CoinSupervisor (mailbox:Actor<_>) =
  
 let CoinSupervisorRef = spawn system "CoinSupervisor" CoinSupervisor
 
-CoinSupervisorRef <! SupervisorMessage(lead)
-// CoinSupervisorRef <! PoisonPill.Instance
-#time "on"
-// system.WhenTerminated.Wait()
-system.Terminate()
+let serverSetup = 
+    spawn system "myServer"
+        <| fun mailbox ->
+            let rec loop()=actor{
+                let! msg = mailbox.Receive()
+                printfn "%s" msg 
+                CoinSupervisorRef <! SupervisorMessage(lead)
+                return! loop() 
+            } loop()
 
-// stopWatch.Stop()
-// printfn "%f" stopWatch.Elapsed.TotalMilliseconds
+CoinSupervisorRef <! SupervisorMessage(lead)
+serverSetup 
+system.WhenTerminated.Wait()
