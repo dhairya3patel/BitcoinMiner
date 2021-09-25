@@ -50,7 +50,7 @@ let GetHash gator nonce suffix : string =
     hashS
 
 //Actor-model
-let workerCount = 8 //Environment.ProcessorCount/2
+let workerCount = Environment.ProcessorCount
 
 let system = ActorSystem.Create("CoinMiner")
 
@@ -77,7 +77,6 @@ let FindCoin gator length =
                 gator
                 + ";"
                 + suffix
-                + " "
                 + nonce.ToString()
                 + "\t"
                 + hash
@@ -132,7 +131,7 @@ let CoinSupervisor (mailbox: Actor<_>) =
                 printfn "%s" returnedCoin
                 coinCount <- coinCount + 1
 
-                if coinCount = 24 then
+                if coinCount = 32 then
                     system.Terminate() |> ignore
                 else
                     workerAddress <! WorkerMessage(6, workerAddress)
